@@ -1,0 +1,13 @@
+base_url: "http://127.0.0.1:8008"
+oauth2_upstream:
+  issuer_url: http://localhost:8080/realms/master
+  client_id: test-matrix-homeserver
+  scopes:
+    - openid
+    - profile
+    - email
+
+cache:
+  url: "redis://127.0.0.1:6379"
+  key_prefix: "vertex_"
+  connection_timeout: "30s"

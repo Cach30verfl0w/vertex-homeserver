@@ -1,0 +1,15 @@
+services:
+  redis:
+    image: redis:latest
+    container_name: vertex_redis-cache_1
+    ports:
+      - "6379:6379"
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: vertex_keycloak_1
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
