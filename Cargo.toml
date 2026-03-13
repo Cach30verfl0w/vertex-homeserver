@@ -3,14 +3,14 @@ name = "vertex-homeserver"
 version = "0.0.1"
 
 authors = ["Cedric Hammes <contact@cach30verfl0w.net>"]
-license = "MPL-2"
+license = "MPL-2.0"
 edition = "2024"
 
 [dependencies]
 tokio = { version = "1.50.0", features = ["rt-multi-thread", "macros"] }
 tracing = { version = "0.1.44", features = ["max_level_trace", "release_max_level_debug"] }
 serde = { version = "1.0.228", features = ["derive"] }
-jsonwebtoken = { version = "10.3.0", features = ["aws_lc_rs"] }
+jsonwebtoken = { version = "10.3.0" }
 figment = { version = "0.10.19", features = ["env", "yaml"] }
 openidconnect = { version = "4.0.1", features = ["reqwest"] }
 serde_with = { version = "3.17.0", features = ["time_0_3"] }
@@ -24,7 +24,7 @@ reqwest = "0.12.0"
 tower-http = { version = "0.6.8", features = ["cors", "tracing"] }
 ruma = { version = "0.14.1", features = ["client-api-s"] }
 axum = { version = "0.8.8", features = ["json", "macros"] }
-aws-lc-rs = "1.16.1"
+aws-lc-rs = "=1.16.1"
 pem = "3.0.6"
 anyhow = "1.0.102"
 schemars = "1.2.1"

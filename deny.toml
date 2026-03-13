@@ -1,0 +1,32 @@
+[advisories]
+ignore = [
+    { id = "RUSTSEC-2023-0071", reason = "RSA crate is not used for cryptographic operations" }
+]
+
+[bans]
+skip-tree = [
+    "base64",
+    "windows-sys",
+    "thiserror",
+    "core-foundation",
+    "getrandom",
+    "toml_datetime",
+    "untrusted"
+]
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Unicode-3.0",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0",
+    "BSL-1.0",
+    "ISC",
+    "BSD-3-Clause",
+    "Zlib"
+]
+
+[[licenses.exceptions]]
+allow = ["OpenSSL"]
+name = "aws-lc-sys"

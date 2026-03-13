@@ -22,7 +22,7 @@ use ruma::api::client::discovery::get_supported_versions::{
 };
 
 async fn get(Ruma { body: inner, .. }: Ruma<Request>) -> Ruma<Response> {
-    Response::new(vec!["v1.7".into(), "v1.17".into()]).into() // Element requires a minimum version of 1.17
+    Response::new(vec!["v1.7".into(), "v1.17".into()]).into() // Element requires a minimum version of 1.7
 }
 
 #[inline(always)]
