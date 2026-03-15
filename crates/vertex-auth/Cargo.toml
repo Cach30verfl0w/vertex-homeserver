@@ -1,0 +1,23 @@
+[package]
+name = "vertex-auth"
+description = "Crate implementing Authentication-related services and endpoints for the Vertex homeserver"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[features]
+schemars = ["dep:schemars", "vertex-common/schemars"]
+
+[dependencies]
+schemars = { workspace = true, optional = true }
+vertex-common.workspace = true
+openidconnect.workspace = true
+duration-str.workspace = true
+thiserror.workspace = true
+reqwest.workspace = true
+tracing.workspace = true
+figment.workspace = true
+serde.workspace = true
+axum.workspace = true
+url.workspace = true

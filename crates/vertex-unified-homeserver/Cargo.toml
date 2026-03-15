@@ -1,0 +1,19 @@
+[package]
+name = "vertex-unified-homeserver"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+axum = { workspace = true, features = ["macros"] }
+tracing-subscriber.workspace = true
+vertex-common.workspace = true
+vertex-auth.workspace = true
+tracing.workspace = true
+figment.workspace = true
+serde.workspace = true
+size.workspace = true
+ruma.workspace = true
+url.workspace = true

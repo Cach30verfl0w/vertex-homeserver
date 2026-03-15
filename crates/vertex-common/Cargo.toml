@@ -1,0 +1,24 @@
+[package]
+name = "vertex-common"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[features]
+schemars = ["dep:schemars"]
+
+[dependencies]
+ruma = { version = "0.14.1", features = ["client-api-s"] }
+schemars = { workspace = true, optional = true }
+async-trait.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+serde.workspace = true
+redis.workspace = true
+axum.workspace = true
+size.workspace = true
+moka.workspace = true
+url.workspace = true

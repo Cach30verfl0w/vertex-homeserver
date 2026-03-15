@@ -8,14 +8,15 @@
  * Copyright (c) 2026 Cedric Hammes
  */
 
-use serde::Deserialize;
-use std::time::Duration;
-use url::Url;
+use crate::{
+    AuthAppState,
+    data::MatrixProviderMetadata,
+};
+use axum::{
+    Json,
+    extract::State,
+};
 
-#[derive(Deserialize)]
-pub struct CacheConfig {
-    pub url: Url,
-    pub key_prefix: String,
-    #[serde(with = "humantime_serde")]
-    pub connection_timeout: Duration,
+pub(crate) async fn get(State(state): State<AuthAppState>) -> Json<MatrixProviderMetadata> {
+    state.provider_metadata().clone().into()
 }

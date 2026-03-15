@@ -1,13 +1,41 @@
 base_url: "http://127.0.0.1:8008"
-oauth2_upstream:
-  issuer_url: http://localhost:8080/realms/master
-  client_id: test-matrix-homeserver
-  scopes:
-    - openid
-    - profile
-    - email
 
+# This section configures the cache used by the homeserver setup. This server can be
+# configured to use a Redis cache for a production environment or a memory cache for
+# test deployments.
 cache:
-  url: "redis://127.0.0.1:6379"
-  key_prefix: "vertex_"
-  connection_timeout: "30s"
+  kind: 'memory' # Available: memory, redis
+  max_entries: 100000
+  # url: 'redis://127.0.0.1:6379'
+  # key_prefix: 'vertex.auth.'
+
+auth:
+  # This section enables the OAuth 2.0 Next-Gen authentication for Matrix. It requires
+  # an upstream provider (e.g. Keycloak) to be configured. You also need to define some
+  # private key which is used for the signing of tokens.
+  oauth2:
+    enabled: true
+    ttl:
+      auth_flow_metadata: 5m
+      auth_code_metadata: 30s
+      access_token: 1h
+      refresh_token: 30d
+    jwks:
+      type: 'files'
+      list:
+        - id: 'rsa-54554453'
+          algorithm: 'RS256'
+          file: './rsa.pem'
+        - id: 'ed25519-53656356'
+          algorithm: 'EdDSA'
+          file: './ed25519.pem'
+        - id: 'p256-5089735'
+          algorithm: 'ES256'
+          file: 'p256.pem'
+    provider:
+      issuer_url: http://localhost:8080/realms/master
+      client_id: test-matrix-homeserver
+      scopes:
+        - openid
+        - profile
+        - email

@@ -8,14 +8,14 @@
  * Copyright (c) 2026 Cedric Hammes
  */
 
-use crate::AppState;
-use axum::Router;
+pub mod well_known;
 
-mod auth_metadata;
-mod versions;
-mod whoami;
+use axum::{routing, Router};
+use crate::AuthAppState;
 
 #[inline(always)]
-pub fn router() -> Router<AppState> {
-    Router::new().merge(auth_metadata::router()).merge(versions::router())
+pub fn router() -> Router<AuthAppState> {
+    Router::new()
+        .route("/_matrix/client/v1/auth_metadata", routing::get(well_known::get))
+        .route("/.well-known/openid-configuration", routing::get(well_known::get))
 }
