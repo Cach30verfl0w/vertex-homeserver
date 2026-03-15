@@ -9,43 +9,61 @@
  */
 
 pub mod config;
-pub mod redis;
 pub mod memory;
+pub mod redis;
 
 use crate::error::Error;
 use chrono::Duration;
 use ruma::exports::serde::Serialize;
 use serde::de::DeserializeOwned;
+use crate::cache::memory::MemoryCache;
+use crate::cache::redis::RedisCache;
 
-#[async_trait::async_trait]
-pub trait Cache: Send + Sync {
-    async fn set<K: AsRef<str> + Send, V: Serialize + Send + Sync>(
+pub enum Cache {
+    Redis(RedisCache),
+    Memory(MemoryCache)
+}
+
+impl Cache {
+    pub async fn set<K: AsRef<str> + Send, V: Serialize + Send + Sync>(
         &self,
         key: K,
-        value: &V,
         ttl: Duration,
-    ) -> Result<(), Error>
-    where
-        Self: Sized;
+        value: &V,
+    ) -> Result<(), Error> {
+        match self {
+            Self::Memory(cache) => cache.set(key, value, ttl).await,
+            Self::Redis(cache) => cache.set(key, value, ttl).await
+        }
+    }
 
-    async fn delete<K: AsRef<str> + Send>(
+    pub async fn delete<K: AsRef<str> + Send>(
         &self,
         key: K,
-    ) -> Result<(), Error>
-    where
-        Self: Sized;
+    ) -> Result<(), Error> {
+        match self {
+            Self::Memory(cache) => cache.delete(key).await,
+            Self::Redis(cache) => cache.delete(key).await
+        }
+    }
 
-    async fn get<K: AsRef<str> + Send, V: DeserializeOwned + Send>(
+    pub async fn get<K: AsRef<str> + Send, V: DeserializeOwned + Send>(
         &self,
         key: K,
-    ) -> Result<Option<V>, Error>
-    where
-        Self: Sized;
+    ) -> Result<Option<V>, Error> {
+        match self {
+            Self::Memory(cache) => cache.get(key).await,
+            Self::Redis(cache) => cache.get(key).await
+        }
+    }
 
-    async fn get_delete<K: AsRef<str> + Send, V: DeserializeOwned + Send>(
+    pub async fn get_and_delete<K: AsRef<str> + Send, V: DeserializeOwned + Send>(
         &self,
         key: K,
-    ) -> Result<Option<V>, Error>
-    where
-        Self: Sized;
+    ) -> Result<Option<V>, Error> {
+        match self {
+            Self::Memory(cache) => cache.get_and_delete(key).await,
+            Self::Redis(cache) => cache.get_and_delete(key).await
+        }
+    }
 }

@@ -4,17 +4,16 @@ base_url: "http://127.0.0.1:8008"
 # configured to use a Redis cache for a production environment or a memory cache for
 # test deployments.
 cache:
-  kind: 'memory' # Available: memory, redis
-  max_entries: 100000
-  # url: 'redis://127.0.0.1:6379'
-  # key_prefix: 'vertex.auth.'
+  kind: 'redis' # Available: memory, redis
+  url: 'redis://127.0.0.1:6379'
+  key_prefix: 'vertex.'
 
 auth:
   # This section enables the OAuth 2.0 Next-Gen authentication for Matrix. It requires
   # an upstream provider (e.g. Keycloak) to be configured. You also need to define some
   # private key which is used for the signing of tokens.
   oauth2:
-    enabled: true
+    enabled: false
     ttl:
       auth_flow_metadata: 5m
       auth_code_metadata: 30s

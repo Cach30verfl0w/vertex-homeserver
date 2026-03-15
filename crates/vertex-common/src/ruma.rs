@@ -7,8 +7,12 @@
  *
  * Copyright (c) 2026 Cedric Hammes
  */
-use std::sync::Arc;
-use crate::{CommonAppStateExt, auth::AuthValidator, payload_bytes, CommonAppState};
+
+use crate::{
+    CommonAppState,
+    auth::AuthValidator,
+    payload_bytes,
+};
 use axum::{
     RequestPartsExt,
     body::{
@@ -42,6 +46,8 @@ use ruma::{
     exports::bytes::BytesMut,
 };
 
+pub type RumaError = Ruma<MatrixError>;
+
 /// A wrapper for Ruma types to provide seamless integration with Axum.
 ///
 /// [Ruma] acts as a custom extract and response handler, translating between native
@@ -69,9 +75,9 @@ impl<T: OutgoingResponse> IntoResponse for Ruma<T> {
 
 impl<T: IncomingRequest> FromRequest<CommonAppState> for Ruma<T>
 where
-    T::Authentication: AuthValidator
+    T::Authentication: AuthValidator,
 {
-    type Rejection = Ruma<MatrixError>;
+    type Rejection = RumaError;
 
     /// ## Errors
     /// - The request payload is too large

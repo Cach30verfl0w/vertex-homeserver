@@ -8,12 +8,16 @@
  * Copyright (c) 2026 Cedric Hammes
  */
 
-use std::sync::Arc;
+use crate::{
+    cache::{
+        Cache,
+        memory::MemoryCache,
+        redis::RedisCache,
+    },
+    error::Error,
+};
 use serde::Deserialize;
-use crate::cache::Cache;
-use crate::cache::memory::MemoryCache;
-use crate::cache::redis::RedisCache;
-use crate::error::Error;
+use std::sync::Arc;
 
 /// The cache used for storing short-living values.
 ///
@@ -29,7 +33,7 @@ use crate::error::Error;
 pub enum CacheConfig {
     Memory {
         /// The count of maximum entries allowed to be in the cache.
-        max_entries: usize
+        max_entries: usize,
     },
     Redis {
         /// The connection url (e.g. redis://127.0.0.1:6379)
@@ -37,17 +41,22 @@ pub enum CacheConfig {
 
         /// Optional prefix for all keys to prevent collisions
         key_prefix: Option<String>,
-    }
+    },
 }
 
 impl CacheConfig {
-    pub async fn new_cache(&self) -> Result<Arc<dyn Cache>, Error> {
+    pub async fn new_cache(&self) -> Result<Arc<Cache>, Error> {
         match self {
-            Self::Memory { max_entries } => Ok(Arc::new(MemoryCache::new(*max_entries))),
+            Self::Memory { max_entries } => Ok(Arc::new(Cache::Memory(MemoryCache::new(*max_entries)))),
             Self::Redis { url, key_prefix } => {
                 tracing::info!("Establishing connection to Redis cache");
-                let client = redis::Client::open(url.as_str())?.get_multiplexed_async_connection().await?;
-                Ok(Arc::new(RedisCache { connection: client, key_prefix: key_prefix.clone() }))
+                let client = redis::Client::open(url.as_str())?
+                    .get_multiplexed_async_connection()
+                    .await?;
+                Ok(Arc::new(Cache::Redis(RedisCache {
+                    connection: client,
+                    key_prefix: key_prefix.clone(),
+                })))
             }
         }
     }

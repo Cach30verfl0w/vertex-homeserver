@@ -8,10 +8,7 @@
  * Copyright (c) 2026 Cedric Hammes
  */
 
-use crate::{
-    cache::Cache,
-    error::Error,
-};
+use crate::error::Error;
 use chrono::Duration;
 use moka::{
     Expiry,
@@ -44,9 +41,8 @@ impl Expiry<String, CacheEntry> for DynamicExpiry {
 
 pub struct MemoryCache(MokaCache<String, CacheEntry>);
 
-#[async_trait::async_trait]
-impl Cache for MemoryCache {
-    async fn set<K: AsRef<str> + Send, V: Serialize + Send + Sync>(
+impl MemoryCache {
+    pub(crate) async fn set<K: AsRef<str> + Send, V: Serialize + Send + Sync>(
         &self,
         key: K,
         value: &V,
@@ -60,7 +56,7 @@ impl Cache for MemoryCache {
         Ok(())
     }
 
-    async fn delete<K: AsRef<str> + Send>(
+    pub(crate) async fn delete<K: AsRef<str> + Send>(
         &self,
         key: K,
     ) -> Result<(), Error>
@@ -71,7 +67,7 @@ impl Cache for MemoryCache {
         Ok(())
     }
 
-    async fn get<K: AsRef<str> + Send, V: DeserializeOwned + Send>(
+    pub(crate) async fn get<K: AsRef<str> + Send, V: DeserializeOwned + Send>(
         &self,
         key: K,
     ) -> Result<Option<V>, Error>
@@ -86,7 +82,7 @@ impl Cache for MemoryCache {
         Ok(Some(serde_json::from_value(entry.value)?))
     }
 
-    async fn get_delete<K: AsRef<str> + Send, V: DeserializeOwned + Send>(
+    pub(crate) async fn get_and_delete<K: AsRef<str> + Send, V: DeserializeOwned + Send>(
         &self,
         key: K,
     ) -> Result<Option<V>, Error>
@@ -105,7 +101,7 @@ impl Cache for MemoryCache {
 
 impl MemoryCache {
     #[inline(always)]
-    pub fn new(max_capability: usize) -> Self {
+    pub(crate) fn new(max_capability: usize) -> Self {
         Self(
             MokaCache::builder()
                 .expire_after(DynamicExpiry)

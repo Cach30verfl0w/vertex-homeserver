@@ -9,11 +9,7 @@
  */
 use axum::{
     Router,
-    extract::{
-        FromRef,
-        State,
-    },
-    handler::HandlerWithoutStateExt,
+    extract::State,
     routing,
 };
 use figment::{
@@ -38,12 +34,14 @@ use serde::Deserialize;
 use size::Size;
 use std::sync::Arc;
 use tokio::net::TcpListener;
+use tracing_subscriber::filter::LevelFilter;
 use url::Url;
 use vertex_auth::{
     AuthAppStateExt,
     config::AuthConfig,
     create_provider_metadata,
     data::MatrixProviderMetadata,
+    service::OAuth2Service,
 };
 use vertex_common::{
     CommonAppState,
@@ -64,8 +62,9 @@ pub struct Config {
 
 pub struct AppState {
     config: Config,
-    cache: Arc<dyn Cache>,
+    cache: Arc<Cache>,
     provider_metadata: MatrixProviderMetadata,
+    oauth_service: Option<OAuth2Service>,
 }
 
 impl CommonAppStateExt for AppState {
@@ -85,6 +84,11 @@ impl AuthAppStateExt for AppState {
     fn provider_metadata(&self) -> &MatrixProviderMetadata {
         &self.provider_metadata
     }
+
+    #[inline(always)]
+    fn get_oauth2_service(&self) -> Option<&OAuth2Service> {
+        self.oauth_service.as_ref()
+    }
 }
 
 async fn well_known(
@@ -100,10 +104,15 @@ async fn versions(Ruma { .. }: Ruma<VersionsRequest>) -> Ruma<VersionsResponse> 
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt().with_max_level(LevelFilter::DEBUG).init();
     let config: Config = Figment::new().merge(Yaml::file("config.yaml")).extract().unwrap();
+    let cache = config.cache.new_cache().await.unwrap();
     let state = AppState {
         provider_metadata: create_provider_metadata(&config.base_url, &config.auth.oauth2),
-        cache: config.cache.new_cache().await.unwrap(),
+        oauth_service: OAuth2Service::new(cache.clone(), &config.auth)
+            .await
+            .unwrap(),
+        cache,
         config,
     };
 

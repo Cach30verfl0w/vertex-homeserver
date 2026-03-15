@@ -10,14 +10,15 @@ edition.workspace = true
 schemars = ["dep:schemars", "vertex-common/schemars"]
 
 [dependencies]
+openidconnect = { version = "4.0.1", features = ["reqwest"] }
 schemars = { workspace = true, optional = true }
 vertex-common.workspace = true
-openidconnect.workspace = true
 duration-str.workspace = true
 thiserror.workspace = true
 reqwest.workspace = true
 tracing.workspace = true
-figment.workspace = true
+chrono.workspace = true
 serde.workspace = true
 axum.workspace = true
+ruma.workspace = true
 url.workspace = true

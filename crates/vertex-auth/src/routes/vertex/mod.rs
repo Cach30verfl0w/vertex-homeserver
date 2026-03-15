@@ -8,16 +8,15 @@
  * Copyright (c) 2026 Cedric Hammes
  */
 
-pub mod well_known;
-pub mod vertex;
+mod authorize;
+mod jwks;
 
-use axum::{routing, Router};
+use axum::Router;
 use crate::AuthAppState;
 
 #[inline]
 pub fn router() -> Router<AuthAppState> {
     Router::new()
-        .route("/_matrix/client/v1/auth_metadata", routing::get(well_known::get))
-        .route("/.well-known/openid-configuration", routing::get(well_known::get))
-        .nest("/_vertex", vertex::router())
+        .nest("/auth/authorize", authorize::router())
+        .nest("/auth/keys.json", jwks::router())
 }

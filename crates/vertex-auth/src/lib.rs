@@ -12,6 +12,7 @@ pub mod config;
 pub mod data;
 pub mod error;
 pub mod routes;
+pub mod service;
 
 use crate::{
     config::{
@@ -45,11 +46,13 @@ use openidconnect::{
 use std::sync::Arc;
 use url::Url;
 use vertex_common::CommonAppStateExt;
+use crate::service::OAuth2Service;
 
 pub type AuthAppState = Arc<dyn AuthAppStateExt>;
 
 pub trait AuthAppStateExt: CommonAppStateExt {
     fn provider_metadata(&self) -> &MatrixProviderMetadata;
+    fn get_oauth2_service(&self) -> Option<&OAuth2Service>;
 }
 
 /// Create OAuth 2.0 provider metadata for homeserver provider.
@@ -66,14 +69,14 @@ pub fn create_provider_metadata(
     auth_config: &OAuth2Config,
 ) -> MatrixProviderMetadata {
     let child_url = |url: &str| base_url.join(url.trim_start_matches("/")).ok();
-    let supported_keys = match &auth_config.jwks {
+    let supported_keys = match auth_config.jwks.as_ref().unwrap() {
         JsonWebKeySetConfig::Files { list } => list.iter().map(|x| x.algorithm.clone()).collect::<Vec<_>>(),
     };
 
     MatrixProviderMetadata::new(
         IssuerUrl::from_url(base_url.clone()),
         AuthUrl::from_url(child_url("/_vertex/auth/authorize").unwrap()),
-        JsonWebKeySetUrl::from_url(child_url("/_vertex/auth/jwks.json").unwrap()),
+        JsonWebKeySetUrl::from_url(child_url("/_vertex/auth/keys.json").unwrap()),
         vec![ResponseTypes::new(vec![CoreResponseType::Code])],
         vec![],
         supported_keys,

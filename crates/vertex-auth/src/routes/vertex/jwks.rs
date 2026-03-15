@@ -8,15 +8,15 @@
  * Copyright (c) 2026 Cedric Hammes
  */
 
-use crate::{
-    AuthAppState,
-    data::MatrixProviderMetadata,
-};
+use crate::AuthAppState;
 use axum::{
     Json,
+    Router,
     extract::State,
     http::StatusCode,
+    routing,
 };
+use openidconnect::core::CoreJsonWebKeySet;
 use ruma::api::client::{
     Error as MatrixError,
     error::{
@@ -27,8 +27,8 @@ use ruma::api::client::{
 };
 use vertex_common::ruma::RumaError;
 
-pub(crate) async fn get(State(state): State<AuthAppState>) -> Result<Json<MatrixProviderMetadata>, RumaError> {
-    if state.get_oauth2_service().is_none() {
+async fn get(State(state): State<AuthAppState>) -> Result<Json<CoreJsonWebKeySet>, RumaError> {
+    let Some(service) = state.get_oauth2_service() else {
         return Err(MatrixError::new(
             StatusCode::SERVICE_UNAVAILABLE,
             ErrorBody::Standard(StandardErrorBody::new(
@@ -37,7 +37,12 @@ pub(crate) async fn get(State(state): State<AuthAppState>) -> Result<Json<Matrix
             )),
         )
         .into());
-    }
+    };
 
-    Ok(state.provider_metadata().clone().into())
+    todo!("Not implemented yet")
+}
+
+#[inline]
+pub fn router() -> Router<AuthAppState> {
+    Router::new().route("/", routing::get(get))
 }

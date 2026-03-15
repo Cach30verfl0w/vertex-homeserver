@@ -9,17 +9,11 @@
  */
 
 use crate::error::Error;
-use openidconnect::{
-    AsyncHttpClient,
-    ClientId,
-    ClientSecret,
-    IssuerUrl,
-    core::{
-        CoreClientAuthMethod,
-        CoreJwsSigningAlgorithm,
-        CoreProviderMetadata,
-    },
-};
+use openidconnect::{AsyncHttpClient, ClientId, ClientSecret, IssuerUrl, core::{
+    CoreClientAuthMethod,
+    CoreJwsSigningAlgorithm,
+    CoreProviderMetadata,
+}, Scope};
 use serde::{
     Deserialize,
     Deserializer,
@@ -28,8 +22,8 @@ use serde::{
 use std::{
     ops::Deref,
     path::PathBuf,
-    time::Duration,
 };
+use chrono::Duration;
 
 fn default_client_auth_method() -> CoreClientAuthMethod {
     CoreClientAuthMethod::ClientSecretBasic
@@ -83,7 +77,8 @@ pub struct UpstreamProviderConfig {
     ///
     /// When a user is being redirected to the upstream provider for authorization, this
     /// provider specifies these scopes in the query parameters.
-    pub scopes: Vec<String>,
+    #[cfg_attr(feature = "schemars", schemars(with = "Vec<String>"))]
+    pub scopes: Vec<Scope>,
 }
 
 impl UpstreamProviderConfig {
@@ -102,19 +97,19 @@ impl UpstreamProviderConfig {
 }
 
 const fn default_auth_flow_metadata_ttl() -> Duration {
-    Duration::from_mins(5)
+    Duration::seconds(5)
 }
 
 const fn default_auth_code_metadata_ttl() -> Duration {
-    Duration::from_secs(30)
+    Duration::seconds(30)
 }
 
 const fn default_access_token_ttl() -> Duration {
-    Duration::from_hours(1)
+    Duration::hours(1)
 }
 
 const fn default_refresh_token_ttl() -> Duration {
-    Duration::from_hours(30 * 24)
+    Duration::days(30)
 }
 
 /// The Time-to-live configuration for cache entries and tokens.
@@ -133,7 +128,7 @@ pub struct TimeToLiveConfig {
         default = "default_auth_flow_metadata_ttl",
         deserialize_with = "duration_str::deserialize_duration"
     )]
-    auth_flow_metadata: Duration,
+    pub auth_flow_metadata: Duration,
 
     /// The TTL of the authentication code metadata in the cache.
     ///
@@ -144,7 +139,7 @@ pub struct TimeToLiveConfig {
         default = "default_auth_code_metadata_ttl",
         deserialize_with = "duration_str::deserialize_duration"
     )]
-    auth_code_metadata: Duration,
+    pub auth_code_metadata: Duration,
 
     /// The TTL of an access token issued by the homeserver auth provider.
     #[cfg_attr(feature = "schemars", schemars(with = "String"))]
@@ -152,7 +147,7 @@ pub struct TimeToLiveConfig {
         default = "default_access_token_ttl",
         deserialize_with = "duration_str::deserialize_duration"
     )]
-    access_token: Duration,
+    pub access_token: Duration,
 
     /// The TTL of an refresh token issued by the homeserver auth provider.
     #[cfg_attr(feature = "schemars", schemars(with = "String"))]
@@ -160,7 +155,7 @@ pub struct TimeToLiveConfig {
         default = "default_refresh_token_ttl",
         deserialize_with = "duration_str::deserialize_duration"
     )]
-    refresh_token: Duration,
+    pub refresh_token: Duration,
 }
 
 impl Default for TimeToLiveConfig {
@@ -197,6 +192,7 @@ pub struct JsonWebKeyConfig {
 pub struct VerifiedJsonWebKeyConfig(JsonWebKeyConfig);
 
 impl<'de> Deserialize<'de> for VerifiedJsonWebKeyConfig {
+    #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -238,6 +234,15 @@ pub enum JsonWebKeySetConfig {
     Files { list: Vec<VerifiedJsonWebKeyConfig> },
 }
 
+impl JsonWebKeySetConfig {
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Files { list } => list.is_empty(),
+        }
+    }
+}
+
 /// The config section for the OAuth 2.0 Next-Gen Auth integration.
 ///
 /// This config provides toggling and configuration options for the integration
@@ -249,18 +254,64 @@ pub struct OAuth2Config {
     pub enabled: bool,
 
     /// The JSON web key set configuration for the Matrix homeserver provider.
-    pub jwks: JsonWebKeySetConfig,
+    ///
+    /// This is the subsection to configure the JWK set for signing the tokens issued
+    /// by the homeserver. This option is only none when enabled is false.
+    pub jwks: Option<JsonWebKeySetConfig>,
 
     /// The upstream OAuth 2.0 provider for the Matrix homeserver provider.
-    pub provider: UpstreamProviderConfig,
+    ///
+    /// This is the subsection to configure the meta-info for using that provider
+    /// as upstream. This option is only none when enabled is false.
+    pub provider: Option<UpstreamProviderConfig>,
 
     /// The time-to-live values for cache entries and issued tokens.
     #[serde(default)]
     pub ttl: TimeToLiveConfig,
 }
 
+#[derive(Clone)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars", schemars(transparent))]
+pub struct VerifiedOAuth2Config(OAuth2Config);
+
+impl<'de> Deserialize<'de> for VerifiedOAuth2Config {
+    #[inline]
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Self::try_from(OAuth2Config::deserialize(deserializer)?).map_err(|error| D::Error::custom(error))?)
+    }
+}
+
+impl TryFrom<OAuth2Config> for VerifiedOAuth2Config {
+    type Error = Error;
+
+    fn try_from(config: OAuth2Config) -> Result<Self, Self::Error> {
+        if config.enabled && config.provider.is_none() {
+            return Err(Error::InvalidOAuth2Config("OAuth 2.0 auth is enabled, but missing upstream provider config"));
+        }
+
+        if config.enabled && config.jwks.as_ref().map(|x| x.is_empty()).unwrap_or(false) {
+            return Err(Error::InvalidOAuth2Config("OAuth 2.0 auth is enabled, but missing Json Web Key Set config"));
+        }
+
+        Ok(Self(config))
+    }
+}
+
+impl Deref for VerifiedOAuth2Config {
+    type Target = OAuth2Config;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[derive(Deserialize, Clone)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct AuthConfig {
-    pub oauth2: OAuth2Config,
+    pub oauth2: VerifiedOAuth2Config,
 }
