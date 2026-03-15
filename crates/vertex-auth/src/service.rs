@@ -78,7 +78,7 @@ impl OAuth2Service {
         config: &AuthConfig,
     ) -> Result<Option<Self>, Error> {
         if !config.oauth2.enabled {
-            tracing::debug!("Skipping enabling OAuth 2.0 service: OAuth 2.0 Next-Gen Auth is disabled!");
+            tracing::debug!("Skipping OAuth 2.0 service: OAuth 2.0 Next-Gen Auth is disabled!");
             return Ok(None);
         }
 
