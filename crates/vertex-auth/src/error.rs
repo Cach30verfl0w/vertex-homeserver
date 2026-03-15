@@ -27,6 +27,15 @@ pub enum Error {
 
     #[error(transparent)]
     Common(#[from] vertex_common::error::Error),
+    
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    
+    #[error("The file is not in the PEM format")]
+    Pem(#[from] pem::PemError),
+    
+    #[error("The key in the file was rejected")]
+    AwsLc(#[from] aws_lc_rs::error::KeyRejected),
 
     #[error("Unexpected error while requesting upstream provider metadata")]
     OAuth2DiscoveryFailed,
@@ -57,6 +66,9 @@ pub enum Error {
     /// token can't be found in the cache.
     #[error("Invalid or expired authorization session '{0}'")]
     NoAuthenticationFlow(String),
+    
+    #[error("Unsupported algorithm for Json Web Key '{0}'")]
+    UnsupportedKeyAlgorithm(String),
 }
 
 impl From<Error> for RumaError {

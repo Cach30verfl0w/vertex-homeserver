@@ -7,14 +7,25 @@
  *
  * Copyright (c) 2026 Cedric Hammes
  */
-
 use crate::{
     config::{
         AuthConfig,
+        JsonWebKeyConfig,
+        JsonWebKeySetConfig,
         TimeToLiveConfig,
         UpstreamProviderConfig,
     },
+    data::jwk_type_to_str,
     error::Error,
+};
+use aws_lc_rs::{
+    rsa,
+    signature,
+    signature::{
+        EcdsaKeyPair,
+        Ed25519KeyPair,
+        KeyPair,
+    },
 };
 use openidconnect::{
     AuthorizationCode,
@@ -23,6 +34,8 @@ use openidconnect::{
     EndpointMaybeSet,
     EndpointNotSet,
     EndpointSet,
+    JsonWebKeyId,
+    JwsSigningAlgorithm,
     Nonce,
     PkceCodeChallenge,
     PkceCodeVerifier,
@@ -31,13 +44,20 @@ use openidconnect::{
     core::{
         CoreAuthenticationFlow,
         CoreClient,
+        CoreJsonCurveType,
+        CoreJsonWebKey,
+        CoreJsonWebKeyType,
+        CoreJwsSigningAlgorithm,
     },
 };
 use serde::{
     Deserialize,
     Serialize,
 };
-use std::sync::Arc;
+use std::{
+    fs,
+    sync::Arc,
+};
 use url::Url;
 use vertex_common::cache::Cache;
 
@@ -64,11 +84,82 @@ pub enum RedirectUrlContent {
     },
 }
 
+pub enum Keypair {
+    RSA(rsa::KeyPair),
+    Ecdsa(EcdsaKeyPair),
+    Ed25519(Ed25519KeyPair),
+}
+
+/// Read the private key file and create a key pair.
+///
+/// This function reads the PEM data from the file specified in the
+/// config and creates a `aws-lc-rs` key pair and a public JSON web
+/// key for `openidconnect-rs` out of the data.
+///
+/// ## Hint
+/// - The key's algorithm is inherited by the signing algorithm in the config
+/// - The file path specified in the config MUST point to a PEM file (with PKCS#8 data)
+///
+/// ## See also
+/// - [2.3.3. Elliptic-Curve-Point to Octet-String Conversion, SEC 1: Elliptic Curve Cryptography](https://www.secg.org/sec1-v2.pdf)
+#[tracing::instrument(
+    name = "read_jwk_key",
+    skip_all,
+    fields(
+        id = config.id,
+        algorithm = jwk_type_to_str(config.algorithm.key_type().unwrap()))
+)
+]
+fn read_file_into_key(config: &JsonWebKeyConfig) -> Result<(Keypair, CoreJsonWebKey), Error> {
+    tracing::debug!("Read private key from file path");
+    let bytes = pem::parse(fs::read(&config.file)?)?.into_contents();
+    let key_id = Some(JsonWebKeyId::new(config.id.clone()));
+
+    // Signing algorithm 'none' is filtered by deserializer
+    match config.algorithm.key_type().unwrap() {
+        CoreJsonWebKeyType::EllipticCurve => {
+            let (signing_algorithm, curve_type) = match &config.algorithm {
+                CoreJwsSigningAlgorithm::EcdsaP256Sha256 => {
+                    (&signature::ECDSA_P256_SHA256_FIXED_SIGNING, CoreJsonCurveType::P256)
+                }
+                CoreJwsSigningAlgorithm::EcdsaP384Sha384 => {
+                    (&signature::ECDSA_P384_SHA384_FIXED_SIGNING, CoreJsonCurveType::P384)
+                }
+                CoreJwsSigningAlgorithm::EcdsaP521Sha512 => {
+                    (&signature::ECDSA_P521_SHA512_FIXED_SIGNING, CoreJsonCurveType::P521)
+                }
+                algorithm => return Err(Error::UnsupportedKeyAlgorithm(format!("{:?}", algorithm))),
+            };
+
+            let keypair = EcdsaKeyPair::from_pkcs8(signing_algorithm, &bytes)?;
+            let public_key = keypair.public_key().as_ref();
+            assert_eq!(0x04, public_key[0], "The uncompressed form of EC public keys requires 0x04 as first byte");
+            let public_key =
+                CoreJsonWebKey::new_ec(public_key[1..33].to_vec(), public_key[33..65].to_vec(), curve_type, key_id);
+            Ok((Keypair::Ecdsa(keypair), public_key))
+        }
+        CoreJsonWebKeyType::OctetKeyPair => {
+            let keypair = Ed25519KeyPair::from_pkcs8(&bytes)?;
+            let public_key = keypair.public_key().as_ref().to_vec();
+            Ok((Keypair::Ed25519(keypair), CoreJsonWebKey::new_okp(public_key, CoreJsonCurveType::Ed25519, key_id)))
+        }
+        CoreJsonWebKeyType::RSA => {
+            let keypair = rsa::KeyPair::from_pkcs8(&bytes)?;
+            let public_key = keypair.public_key();
+            let exponent = public_key.exponent().big_endian_without_leading_zero().to_vec();
+            let modulus = public_key.modulus().big_endian_without_leading_zero().to_vec();
+            Ok((Keypair::RSA(keypair), CoreJsonWebKey::new_rsa(modulus, exponent, key_id)))
+        }
+        kind => Err(Error::UnsupportedKeyAlgorithm(jwk_type_to_str(kind).to_string())),
+    }
+}
+
 pub struct OAuth2Service {
     cache: Arc<Cache>,
     time_to_live_config: TimeToLiveConfig,
     upstream_provider_config: UpstreamProviderConfig,
-    upstream_provider_client: UpstreamOAuth2Client
+    upstream_provider_client: UpstreamOAuth2Client,
+    pub(crate) json_web_key_set: Vec<(Keypair, CoreJsonWebKey)>,
 }
 
 impl OAuth2Service {
@@ -88,10 +179,6 @@ impl OAuth2Service {
         let upstream_provider_metadata = upstream_provider_config.get_provider_metadata(&http_client).await?;
         tracing::debug!(issuer_url = %upstream_provider_metadata.issuer(), "Loaded upstream metadata provider");
 
-        // Read Json Web keys and initialize set.
-        let json_web_keys_config = config.oauth2.jwks.as_ref().unwrap();
-        // TODO: implement
-
         // Return.
         Ok(Some(Self {
             cache,
@@ -102,6 +189,13 @@ impl OAuth2Service {
                 upstream_provider_config.client_secret.clone(),
             ),
             upstream_provider_config,
+            json_web_key_set: match config.oauth2.jwks.as_ref().unwrap() {
+                JsonWebKeySetConfig::Files { list } => {
+                    list.iter()
+                        .map(|config| read_file_into_key(config))
+                        .collect::<Result<Vec<_>, Error>>()?
+                }
+            },
         }))
     }
 

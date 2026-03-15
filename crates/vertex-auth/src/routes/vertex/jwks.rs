@@ -39,7 +39,14 @@ async fn get(State(state): State<AuthAppState>) -> Result<Json<CoreJsonWebKeySet
         .into());
     };
 
-    todo!("Not implemented yet")
+    Ok(CoreJsonWebKeySet::new(
+        service
+            .json_web_key_set
+            .iter()
+            .map(|(_, public_key)| public_key.clone())
+            .collect::<Vec<_>>(),
+    )
+    .into())
 }
 
 #[inline]

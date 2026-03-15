@@ -28,6 +28,7 @@ use openidconnect::{
         CoreSubjectIdentifierType,
     },
 };
+use openidconnect::core::CoreJsonWebKeyType;
 use serde::{
     Deserialize,
     Serialize,
@@ -62,3 +63,12 @@ pub type MatrixProviderMetadata = ProviderMetadata<
     CoreSubjectIdentifierType,
 >;
 
+pub fn jwk_type_to_str(kind: CoreJsonWebKeyType) -> &'static str {
+    match kind {
+        CoreJsonWebKeyType::EllipticCurve => "elliptic curve",
+        CoreJsonWebKeyType::OctetKeyPair => "octet",
+        CoreJsonWebKeyType::RSA => "RSA",
+        CoreJsonWebKeyType::Symmetric => "symmetric",
+        _ => "unknown"
+    }
+}

@@ -15,6 +15,7 @@ schemars = { workspace = true, optional = true }
 vertex-common.workspace = true
 duration-str.workspace = true
 thiserror.workspace = true
+aws-lc-rs.workspace = true
 reqwest.workspace = true
 tracing.workspace = true
 chrono.workspace = true
@@ -22,3 +23,4 @@ serde.workspace = true
 axum.workspace = true
 ruma.workspace = true
 url.workspace = true
+pem.workspace = true
